@@ -1,30 +1,37 @@
 import { z } from "zod";
+import type { NormalizedCoord, PixelDimension, UUID } from "./branded";
+
+// --- Primitive Schemas ---
+
+const normalizedCoord = z.number().min(0).max(1).transform((v) => v as NormalizedCoord);
+const pixelDimension = z.number().int().nonnegative().transform((v) => v as PixelDimension);
+const annotationId = z.string().uuid().transform((v) => v as UUID);
 
 // --- Annotation Schemas ---
 
 export const bboxAnnotationSchema = z.object({
-  id: z.string().uuid(),
+  id: annotationId,
   type: z.literal("bbox"),
   label: z.string().min(1),
-  x: z.number().min(0).max(1),
-  y: z.number().min(0).max(1),
-  width: z.number().min(0).max(1),
-  height: z.number().min(0).max(1),
+  x: normalizedCoord,
+  y: normalizedCoord,
+  width: normalizedCoord,
+  height: normalizedCoord,
 });
 
 export const polygonAnnotationSchema = z.object({
-  id: z.string().uuid(),
+  id: annotationId,
   type: z.literal("polygon"),
   label: z.string().min(1),
-  points: z.array(z.number().min(0).max(1)).min(6), // 最低3頂点 (x,y) × 3
+  points: z.array(normalizedCoord).min(6),
 });
 
 export const pointAnnotationSchema = z.object({
-  id: z.string().uuid(),
+  id: annotationId,
   type: z.literal("point"),
   label: z.string().min(1),
-  x: z.number().min(0).max(1),
-  y: z.number().min(0).max(1),
+  x: normalizedCoord,
+  y: normalizedCoord,
 });
 
 export const annotationSchema = z.discriminatedUnion("type", [
@@ -37,8 +44,8 @@ export const annotationSchema = z.discriminatedUnion("type", [
 
 export const imageAnnotationSchema = z.object({
   imageFile: z.string().min(1),
-  width: z.number().int().nonnegative(),
-  height: z.number().int().nonnegative(),
+  width: pixelDimension,
+  height: pixelDimension,
   annotations: z.array(annotationSchema),
 });
 

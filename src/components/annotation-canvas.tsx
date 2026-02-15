@@ -4,7 +4,10 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Stage, Layer, Rect, Line, Circle, Image as KonvaImage, Transformer } from "react-konva";
 import Konva from "konva";
 import { v4 as uuidv4 } from "uuid";
-import { Annotation, BBoxAnnotation, PolygonAnnotation, PointAnnotation, ToolType } from "@/lib/types";
+import {
+  Annotation, BBoxAnnotation, PolygonAnnotation, PointAnnotation, ToolType,
+  NormalizedCoord, normalizedCoord, uuid, toPixel, toNormalized,
+} from "@/lib/types";
 
 interface AnnotationCanvasProps {
   imageUrl: string;
@@ -87,14 +90,14 @@ export function AnnotationCanvas({
     }
   }, [selectedAnnotationId]);
 
-  const getRelativePointerPosition = useCallback(() => {
+  const getRelativePointerPosition = useCallback((): { x: NormalizedCoord; y: NormalizedCoord } | null => {
     const stage = stageRef.current;
     if (!stage || !image) return null;
     const pointer = stage.getPointerPosition();
     if (!pointer) return null;
     return {
-      x: (pointer.x - position.x) / scale / image.width,
-      y: (pointer.y - position.y) / scale / image.height,
+      x: toNormalized((pointer.x - position.x) / scale, image.width),
+      y: toNormalized((pointer.y - position.y) / scale, image.height),
     };
   }, [position, scale, image]);
 
@@ -149,7 +152,7 @@ export function AnnotationCanvas({
 
     if (activeTool === "point") {
       const newPoint: PointAnnotation = {
-        id: uuidv4(),
+        id: uuid(uuidv4()),
         type: "point",
         label: activeLabel,
         x: pos.x,
@@ -163,10 +166,10 @@ export function AnnotationCanvas({
       // Double click closes polygon
       if (e.evt.detail === 2 && polygonPoints.length >= 6) {
         const newPolygon: PolygonAnnotation = {
-          id: uuidv4(),
+          id: uuid(uuidv4()),
           type: "polygon",
           label: activeLabel,
-          points: polygonPoints,
+          points: polygonPoints as NormalizedCoord[],
         };
         onAnnotationsChange([...annotations, newPolygon]);
         setPolygonPoints([]);
@@ -206,10 +209,13 @@ export function AnnotationCanvas({
     }
 
     const newBBox: BBoxAnnotation = {
-      id: uuidv4(),
+      id: uuid(uuidv4()),
       type: "bbox",
       label: activeLabel,
-      x, y, width, height,
+      x: normalizedCoord(x),
+      y: normalizedCoord(y),
+      width: normalizedCoord(width),
+      height: normalizedCoord(height),
     };
     onAnnotationsChange([...annotations, newBBox]);
     setDrawingBBox(null);
@@ -234,10 +240,10 @@ export function AnnotationCanvas({
       if (ann.id !== id || ann.type !== "bbox") return ann;
       return {
         ...ann,
-        x: node.x() / image.width,
-        y: node.y() / image.height,
-        width: Math.max(0.005, (node.width() * scaleX) / image.width),
-        height: Math.max(0.005, (node.height() * scaleY) / image.height),
+        x: toNormalized(node.x(), image.width),
+        y: toNormalized(node.y(), image.height),
+        width: normalizedCoord(Math.max(0.005, (node.width() * scaleX) / image.width)),
+        height: normalizedCoord(Math.max(0.005, (node.height() * scaleY) / image.height)),
       };
     });
     onAnnotationsChange(updated);
@@ -250,10 +256,10 @@ export function AnnotationCanvas({
     const updated = annotations.map((ann) => {
       if (ann.id !== id) return ann;
       if (ann.type === "bbox") {
-        return { ...ann, x: node.x() / image.width, y: node.y() / image.height };
+        return { ...ann, x: toNormalized(node.x(), image.width), y: toNormalized(node.y(), image.height) };
       }
       if (ann.type === "point") {
-        return { ...ann, x: node.x() / image.width, y: node.y() / image.height };
+        return { ...ann, x: toNormalized(node.x(), image.width), y: toNormalized(node.y(), image.height) };
       }
       return ann;
     });
@@ -309,10 +315,10 @@ export function AnnotationCanvas({
             .map((ann) => (
               <Rect
                 key={ann.id}
-                x={ann.x * imgWidth}
-                y={ann.y * imgHeight}
-                width={ann.width * imgWidth}
-                height={ann.height * imgHeight}
+                x={toPixel(ann.x, imgWidth)}
+                y={toPixel(ann.y, imgHeight)}
+                width={toPixel(ann.width, imgWidth)}
+                height={toPixel(ann.height, imgHeight)}
                 stroke={labelColors[ann.label] || "#FF0000"}
                 strokeWidth={2 / scale}
                 draggable={activeTool === "select"}
@@ -335,7 +341,7 @@ export function AnnotationCanvas({
               <Line
                 key={ann.id}
                 points={ann.points.map((p, i) =>
-                  i % 2 === 0 ? p * imgWidth : p * imgHeight
+                  i % 2 === 0 ? toPixel(p, imgWidth) : toPixel(p, imgHeight)
                 )}
                 stroke={labelColors[ann.label] || "#FF0000"}
                 strokeWidth={2 / scale}
@@ -352,8 +358,8 @@ export function AnnotationCanvas({
             .map((ann) => (
               <Circle
                 key={ann.id}
-                x={ann.x * imgWidth}
-                y={ann.y * imgHeight}
+                x={toPixel(ann.x, imgWidth)}
+                y={toPixel(ann.y, imgHeight)}
                 radius={5 / scale}
                 fill={labelColors[ann.label] || "#FF0000"}
                 stroke="white"
@@ -372,6 +378,7 @@ export function AnnotationCanvas({
               y={drawingBBox.y * imgHeight}
               width={drawingBBox.width * imgWidth}
               height={drawingBBox.height * imgHeight}
+              /* drawingBBox は描画中の一時状態 (まだ確定前) なので素の number */
               stroke={labelColors[activeLabel] || "#FF0000"}
               strokeWidth={2 / scale}
               dash={[4 / scale, 4 / scale]}
@@ -383,6 +390,7 @@ export function AnnotationCanvas({
             <>
               <Line
                 points={polygonPoints.map((p, i) =>
+                  /* polygonPoints は描画中の一時状態なので素の number のまま */
                   i % 2 === 0 ? p * imgWidth : p * imgHeight
                 )}
                 stroke={labelColors[activeLabel] || "#FF0000"}

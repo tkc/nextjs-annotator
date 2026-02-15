@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { imageAnnotationSchema } from "@/lib/schemas";
 import type { ImageAnnotation } from "@/lib/types";
+import { pixelDimension } from "@/lib/branded";
 
 function getConfig() {
   const configPath = path.join(process.cwd(), "annotation-config.json");
@@ -26,8 +27,8 @@ export async function GET(
   if (!fs.existsSync(annotationPath)) {
     const empty: ImageAnnotation = {
       imageFile: filename,
-      width: 0,
-      height: 0,
+      width: pixelDimension(0),
+      height: pixelDimension(0),
       annotations: [],
     };
     return NextResponse.json(empty);

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
-import { ImageAnnotation, BBoxAnnotation, PolygonAnnotation, PointAnnotation } from "@/lib/types";
+import { ImageAnnotation, BBoxAnnotation, PolygonAnnotation, PointAnnotation, toPixel } from "@/lib/types";
 
 function getConfig() {
   const configPath = path.join(process.cwd(), "annotation-config.json");
@@ -51,10 +51,10 @@ export async function GET() {
 
       if (ann.type === "bbox") {
         const bbox = ann as BBoxAnnotation;
-        const x = bbox.x * data.width;
-        const y = bbox.y * data.height;
-        const w = bbox.width * data.width;
-        const h = bbox.height * data.height;
+        const x = toPixel(bbox.x, data.width);
+        const y = toPixel(bbox.y, data.height);
+        const w = toPixel(bbox.width, data.width);
+        const h = toPixel(bbox.height, data.height);
 
         cocoAnnotations.push({
           id: annotationId++,
@@ -71,8 +71,8 @@ export async function GET() {
         const segmentation = [];
         const flatPoints: number[] = [];
         for (let i = 0; i < poly.points.length; i += 2) {
-          flatPoints.push(poly.points[i] * data.width);
-          flatPoints.push(poly.points[i + 1] * data.height);
+          flatPoints.push(toPixel(poly.points[i], data.width));
+          flatPoints.push(toPixel(poly.points[i + 1], data.height));
         }
         segmentation.push(flatPoints);
 
@@ -100,7 +100,7 @@ export async function GET() {
           id: annotationId++,
           image_id: imageId + 1,
           category_id: categoryId,
-          keypoints: [pt.x * data.width, pt.y * data.height, 2],
+          keypoints: [toPixel(pt.x, data.width), toPixel(pt.y, data.height), 2],
           num_keypoints: 1,
         });
       }

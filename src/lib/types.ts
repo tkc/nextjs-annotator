@@ -20,3 +20,19 @@ export type ImageListResponse = z.infer<typeof imageListResponseSchema>;
 
 // UI 用の型 (Zod 不要)
 export type { AnnotationType, ToolType } from "./schemas";
+
+// Branded Types re-export
+export type {
+  NormalizedCoord,
+  PixelCoord,
+  PixelDimension,
+  UUID,
+} from "./branded";
+export {
+  normalizedCoord,
+  pixelCoord,
+  pixelDimension,
+  uuid,
+  toPixel,
+  toNormalized,
+} from "./branded";
