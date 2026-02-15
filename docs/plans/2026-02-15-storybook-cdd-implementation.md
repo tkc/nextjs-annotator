@@ -21,7 +21,7 @@
 
 Run:
 ```bash
-pnpm add -D storybook @storybook/nextjs @storybook/react @storybook/addon-essentials @storybook/addon-interactions @storybook/test @storybook/blocks
+pnpm add -D storybook @storybook/nextjs @storybook/react @storybook/addon-essentials @storybook/addon-interactions @storybook/test @storybook/blocks @storybook/test-runner vitest @vitejs/plugin-react playwright @playwright/test
 ```
 
 **Step 2: `.storybook/main.ts` を作成**
@@ -70,7 +70,13 @@ export default preview;
 `scripts` に以下を追加:
 ```json
 "storybook": "storybook dev -p 6006",
-"build-storybook": "storybook build"
+"build-storybook": "storybook build",
+"test": "vitest run",
+"test:watch": "vitest",
+"test:coverage": "vitest run --coverage",
+"test:storybook": "test-storybook",
+"test:e2e": "playwright test",
+"test:all": "pnpm test && pnpm test:storybook && pnpm test:e2e"
 ```
 
 **Step 5: Storybook 起動確認**

@@ -93,8 +93,12 @@ tests/
 ## 5. 検証コマンド
 
 ```bash
-pnpm storybook        # Storybook 開発サーバー
 pnpm test             # Vitest (unit + integration)
-pnpm test:e2e         # Playwright
+pnpm test:watch       # Vitest ウォッチモード
 pnpm test:coverage    # カバレッジレポート
+pnpm test:storybook   # Storybook interaction testing (要: Storybook 起動中)
+pnpm test:e2e         # Playwright E2E
+pnpm test:all         # 全テスト一括実行
+pnpm storybook        # Storybook 開発サーバー
+pnpm build-storybook  # Storybook 静的ビルド
 ```
