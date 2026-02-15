@@ -70,20 +70,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for E2E test files
+        id: check
+        run: |
+          if find tests/e2e -name '*.spec.ts' -o -name '*.spec.tsx' 2>/dev/null | grep -q .; then
+            echo "has_tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_tests=false" >> "$GITHUB_OUTPUT"
+            echo "No E2E test files found, skipping."
+          fi
+
       - uses: pnpm/action-setup@v4
+        if: steps.check.outputs.has_tests == 'true'
 
       - uses: actions/setup-node@v4
+        if: steps.check.outputs.has_tests == 'true'
         with:
           node-version: 22
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+        if: steps.check.outputs.has_tests == 'true'
 
       - name: Install Playwright browsers
+        if: steps.check.outputs.has_tests == 'true'
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Create data directories
+        if: steps.check.outputs.has_tests == 'true'
         run: mkdir -p data/images data/annotations
 
       - name: Run E2E tests
+        if: steps.check.outputs.has_tests == 'true'
         run: pnpm test:e2e
