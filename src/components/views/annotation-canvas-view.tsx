@@ -1,38 +1,46 @@
 "use client";
 
 import type Konva from "konva";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Circle, Image as KonvaImage, Layer, Line, Rect, Stage, Transformer } from "react-konva";
-import { useShallow } from "zustand/react/shallow";
 import { createBBox, createPoint, createPolygon } from "@/lib/annotation-factory";
-import { useAnnotationStore } from "@/lib/stores/annotation-store";
-import { useSamStore } from "@/lib/stores/sam-store";
-import {
-  type BBoxAnnotation,
-  type NormalizedCoord,
-  normalizedCoord,
-  type PointAnnotation,
-  type PolygonAnnotation,
-  toNormalized,
-  toPixel,
+import type {
+  Annotation,
+  BBoxAnnotation,
+  NormalizedCoord,
+  PointAnnotation,
+  PolygonAnnotation,
+  ToolType,
 } from "@/lib/types";
-import { SamOverlay } from "./sam-overlay";
+import { normalizedCoord, toNormalized, toPixel } from "@/lib/types";
 
-export function AnnotationCanvas() {
-  const { currentImage, annotations, activeTool, activeLabel, selectedAnnotationId } = useAnnotationStore(
-    useShallow((s) => ({
-      currentImage: s.currentImage,
-      annotations: s.annotations,
-      activeTool: s.activeTool,
-      activeLabel: s.activeLabel,
-      selectedAnnotationId: s.selectedAnnotationId,
-    })),
-  );
-  const updateAnnotations = useAnnotationStore((s) => s.updateAnnotations);
-  const setSelectedAnnotationId = useAnnotationStore((s) => s.setSelectedAnnotationId);
+export interface AnnotationCanvasViewProps {
+  imageUrl: string;
+  annotations: readonly Annotation[];
+  activeTool: ToolType;
+  activeLabel: string;
+  selectedAnnotationId: string | null;
+  onAnnotationsChange: (annotations: readonly Annotation[]) => void;
+  onSelectAnnotation: (id: string | null) => void;
+  onImageLoad?: (width: number, height: number) => void;
+  onSamClick?: (x: NormalizedCoord, y: NormalizedCoord, clickType: 0 | 1) => void;
+  samOverlay?: ReactNode;
+}
 
-  const imageUrl = currentImage ? `/api/images/${encodeURIComponent(currentImage)}` : "";
+const PALETTE = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#98D8C8", "#F7DC6F"] as const;
 
+export function AnnotationCanvasView({
+  imageUrl,
+  annotations,
+  activeTool,
+  activeLabel,
+  selectedAnnotationId,
+  onAnnotationsChange,
+  onSelectAnnotation,
+  onImageLoad,
+  onSamClick,
+  samOverlay,
+}: AnnotationCanvasViewProps) {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 });
   const [scale, setScale] = useState(1);
@@ -54,7 +62,7 @@ export function AnnotationCanvas() {
     img.src = imageUrl;
     img.onload = () => {
       setImage(img);
-      useSamStore.getState().setImageDimensions(img.width, img.height);
+      onImageLoad?.(img.width, img.height);
       if (containerRef.current) {
         const containerWidth = containerRef.current.offsetWidth;
         const containerHeight = containerRef.current.offsetHeight;
@@ -69,7 +77,7 @@ export function AnnotationCanvas() {
         });
       }
     };
-  }, [imageUrl]);
+  }, [imageUrl, onImageLoad]);
 
   // Resize handler
   useEffect(() => {
@@ -140,8 +148,6 @@ export function AnnotationCanvas() {
   const handleMouseDown = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (!image) return;
-
-      // Right click or middle click - ignore (except SAM tool uses right click for background)
       if (e.evt.button === 1) return;
       if (e.evt.button === 2 && activeTool !== "sam") return;
 
@@ -149,9 +155,8 @@ export function AnnotationCanvas() {
       if (!pos) return;
 
       if (activeTool === "select") {
-        // Clicking on empty area deselects
         if (e.target === e.target.getStage() || e.target.getClassName() === "Image") {
-          setSelectedAnnotationId(null);
+          onSelectAnnotation(null);
         }
         return;
       }
@@ -164,15 +169,14 @@ export function AnnotationCanvas() {
 
       if (activeTool === "point") {
         const newPoint = createPoint(activeLabel, pos.x, pos.y);
-        updateAnnotations([...annotations, newPoint]);
+        onAnnotationsChange([...annotations, newPoint]);
         return;
       }
 
       if (activeTool === "polygon") {
-        // Double click closes polygon
         if (e.evt.detail === 2 && polygonPoints.length >= 6) {
           const newPolygon = createPolygon(activeLabel, polygonPoints);
-          updateAnnotations([...annotations, newPolygon]);
+          onAnnotationsChange([...annotations, newPolygon]);
           setPolygonPoints([]);
           return;
         }
@@ -181,8 +185,8 @@ export function AnnotationCanvas() {
       }
 
       if (activeTool === "sam") {
-        const clickType = e.evt.button === 2 ? 0 : 1; // right=background(0), left=foreground(1)
-        useSamStore.getState().addClick({ x: pos.x, y: pos.y, clickType: clickType as 0 | 1 });
+        const clickType = e.evt.button === 2 ? 0 : 1;
+        onSamClick?.(pos.x, pos.y, clickType as 0 | 1);
         return;
       }
     },
@@ -193,8 +197,9 @@ export function AnnotationCanvas() {
       annotations,
       polygonPoints,
       getRelativePointerPosition,
-      updateAnnotations,
-      setSelectedAnnotationId,
+      onAnnotationsChange,
+      onSelectAnnotation,
+      onSamClick,
     ],
   );
 
@@ -203,12 +208,7 @@ export function AnnotationCanvas() {
       if (!isDrawing || activeTool !== "bbox" || !drawingBBox || !image) return;
       const pos = getRelativePointerPosition();
       if (!pos) return;
-
-      setDrawingBBox({
-        ...drawingBBox,
-        width: pos.x - drawingBBox.x,
-        height: pos.y - drawingBBox.y,
-      });
+      setDrawingBBox({ ...drawingBBox, width: pos.x - drawingBBox.x, height: pos.y - drawingBBox.y });
     },
     [isDrawing, activeTool, drawingBBox, image, getRelativePointerPosition],
   );
@@ -217,31 +217,29 @@ export function AnnotationCanvas() {
     if (!isDrawing || activeTool !== "bbox" || !drawingBBox) return;
     setIsDrawing(false);
 
-    // Normalize negative width/height
     const x = drawingBBox.width < 0 ? drawingBBox.x + drawingBBox.width : drawingBBox.x;
     const y = drawingBBox.height < 0 ? drawingBBox.y + drawingBBox.height : drawingBBox.y;
     const width = Math.abs(drawingBBox.width);
     const height = Math.abs(drawingBBox.height);
 
-    // Ignore tiny boxes
     if (width < 0.005 || height < 0.005) {
       setDrawingBBox(null);
       return;
     }
 
     const newBBox = createBBox(activeLabel, x, y, width, height);
-    updateAnnotations([...annotations, newBBox]);
+    onAnnotationsChange([...annotations, newBBox]);
     setDrawingBBox(null);
-  }, [isDrawing, activeTool, drawingBBox, activeLabel, annotations, updateAnnotations]);
+  }, [isDrawing, activeTool, drawingBBox, activeLabel, annotations, onAnnotationsChange]);
 
   const handleShapeClick = useCallback(
     (id: string, nodeRef: Konva.Node) => {
       if (activeTool === "select") {
-        setSelectedAnnotationId(id);
+        onSelectAnnotation(id);
         selectedShapeRef.current = nodeRef;
       }
     },
-    [activeTool, setSelectedAnnotationId],
+    [activeTool, onSelectAnnotation],
   );
 
   const handleTransformEnd = useCallback(
@@ -263,9 +261,9 @@ export function AnnotationCanvas() {
           height: normalizedCoord(Math.max(0.005, (node.height() * scaleY) / image.height)),
         };
       });
-      updateAnnotations(updated);
+      onAnnotationsChange(updated);
     },
-    [annotations, image, updateAnnotations],
+    [annotations, image, onAnnotationsChange],
   );
 
   const handleDragEnd = useCallback(
@@ -275,28 +273,24 @@ export function AnnotationCanvas() {
 
       const updated = annotations.map((ann) => {
         if (ann.id !== id) return ann;
-        if (ann.type === "bbox") {
-          return { ...ann, x: toNormalized(node.x(), image.width), y: toNormalized(node.y(), image.height) };
-        }
-        if (ann.type === "point") {
+        if (ann.type === "bbox" || ann.type === "point") {
           return { ...ann, x: toNormalized(node.x(), image.width), y: toNormalized(node.y(), image.height) };
         }
         return ann;
       });
-      updateAnnotations(updated);
+      onAnnotationsChange(updated);
     },
-    [annotations, image, updateAnnotations],
+    [annotations, image, onAnnotationsChange],
   );
 
   // Color per label
   const labelColors: Record<string, string> = {};
-  const palette = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#98D8C8", "#F7DC6F"] as const;
   const uniqueLabels = [...new Set(annotations.map((a) => a.label))];
   uniqueLabels.forEach((label, i) => {
-    labelColors[label] = palette[i % palette.length];
+    labelColors[label] = PALETTE[i % PALETTE.length];
   });
   if (!labelColors[activeLabel]) {
-    labelColors[activeLabel] = palette[uniqueLabels.length % palette.length];
+    labelColors[activeLabel] = PALETTE[uniqueLabels.length % PALETTE.length];
   }
 
   const imgWidth = image?.width || 1;
@@ -328,7 +322,6 @@ export function AnnotationCanvas() {
         <Layer>
           {image && <KonvaImage image={image} width={imgWidth} height={imgHeight} />}
 
-          {/* Render BBox annotations */}
           {annotations
             .filter((a): a is BBoxAnnotation => a.type === "bbox")
             .map((ann) => (
@@ -353,7 +346,6 @@ export function AnnotationCanvas() {
               />
             ))}
 
-          {/* Render Polygon annotations */}
           {annotations
             .filter((a): a is PolygonAnnotation => a.type === "polygon")
             .map((ann) => (
@@ -369,7 +361,6 @@ export function AnnotationCanvas() {
               />
             ))}
 
-          {/* Render Point annotations */}
           {annotations
             .filter((a): a is PointAnnotation => a.type === "point")
             .map((ann) => (
@@ -388,28 +379,22 @@ export function AnnotationCanvas() {
               />
             ))}
 
-          {/* Drawing in-progress BBox */}
           {drawingBBox && (
             <Rect
               x={drawingBBox.x * imgWidth}
               y={drawingBBox.y * imgHeight}
               width={drawingBBox.width * imgWidth}
               height={drawingBBox.height * imgHeight}
-              /* drawingBBox は描画中の一時状態 (まだ確定前) なので素の number */
               stroke={labelColors[activeLabel] || "#FF0000"}
               strokeWidth={2 / scale}
               dash={[4 / scale, 4 / scale]}
             />
           )}
 
-          {/* Drawing in-progress Polygon */}
           {polygonPoints.length >= 2 && (
             <>
               <Line
-                points={polygonPoints.map((p, i) =>
-                  /* polygonPoints は描画中の一時状態なので素の number のまま */
-                  i % 2 === 0 ? p * imgWidth : p * imgHeight,
-                )}
+                points={polygonPoints.map((p, i) => (i % 2 === 0 ? p * imgWidth : p * imgHeight))}
                 stroke={labelColors[activeLabel] || "#FF0000"}
                 strokeWidth={2 / scale}
                 dash={[4 / scale, 4 / scale]}
@@ -429,10 +414,8 @@ export function AnnotationCanvas() {
             </>
           )}
 
-          {/* SAM mask overlay and click points */}
-          {activeTool === "sam" && <SamOverlay imageWidth={imgWidth} imageHeight={imgHeight} scale={scale} />}
+          {activeTool === "sam" && samOverlay}
 
-          {/* Transformer for selected bbox */}
           {activeTool === "select" && (
             <Transformer
               ref={transformerRef}

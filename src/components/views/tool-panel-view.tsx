@@ -1,13 +1,9 @@
-"use client";
-
-import { useShallow } from "zustand/react/shallow";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { useAnnotationStore } from "@/lib/stores/annotation-store";
-import type { ToolType } from "@/lib/types";
+import type { Annotation, ToolType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const TOOL_LABELS = Object.freeze({
@@ -26,21 +22,29 @@ const TOOL_SHORTCUTS = Object.freeze({
   sam: "S",
 } as const satisfies Record<ToolType, string>);
 
-export function ToolPanel() {
-  const { activeTool, activeLabel, annotations, selectedAnnotationId, labels } = useAnnotationStore(
-    useShallow((s) => ({
-      activeTool: s.activeTool,
-      activeLabel: s.activeLabel,
-      annotations: s.annotations,
-      selectedAnnotationId: s.selectedAnnotationId,
-      labels: s.config?.labels ?? [],
-    })),
-  );
-  const setActiveTool = useAnnotationStore((s) => s.setActiveTool);
-  const setActiveLabel = useAnnotationStore((s) => s.setActiveLabel);
-  const setSelectedAnnotationId = useAnnotationStore((s) => s.setSelectedAnnotationId);
-  const deleteAnnotation = useAnnotationStore((s) => s.deleteAnnotation);
+export interface ToolPanelViewProps {
+  activeTool: ToolType;
+  onToolChange: (tool: ToolType) => void;
+  labels: readonly string[];
+  activeLabel: string;
+  onLabelChange: (label: string) => void;
+  annotations: readonly Annotation[];
+  selectedAnnotationId: string | null;
+  onSelectAnnotation: (id: string) => void;
+  onDeleteAnnotation: (id: string) => void;
+}
 
+export function ToolPanelView({
+  activeTool,
+  onToolChange,
+  labels,
+  activeLabel,
+  onLabelChange,
+  annotations,
+  selectedAnnotationId,
+  onSelectAnnotation,
+  onDeleteAnnotation,
+}: ToolPanelViewProps) {
   return (
     <div className="w-56 border-l bg-muted/30 flex flex-col">
       {/* Tools */}
@@ -53,7 +57,7 @@ export function ToolPanel() {
               variant={activeTool === tool ? "default" : "outline"}
               size="sm"
               className="text-xs"
-              onClick={() => setActiveTool(tool)}
+              onClick={() => onToolChange(tool)}
             >
               {TOOL_LABELS[tool]}
               <span className="ml-1 text-muted-foreground text-[10px]">({TOOL_SHORTCUTS[tool]})</span>
@@ -64,7 +68,7 @@ export function ToolPanel() {
           variant={activeTool === "sam" ? "default" : "outline"}
           size="sm"
           className="text-xs w-full mt-1"
-          onClick={() => setActiveTool("sam")}
+          onClick={() => onToolChange("sam")}
         >
           {TOOL_LABELS.sam}
           <span className="ml-1 text-muted-foreground text-[10px]">({TOOL_SHORTCUTS.sam})</span>
@@ -80,7 +84,7 @@ export function ToolPanel() {
               key={label}
               variant={activeLabel === label ? "default" : "outline"}
               className="cursor-pointer text-xs"
-              onClick={() => setActiveLabel(label)}
+              onClick={() => onLabelChange(label)}
             >
               {label}
             </Badge>
@@ -107,10 +111,10 @@ export function ToolPanel() {
                   "flex items-center justify-between px-2 py-1.5 rounded text-xs cursor-pointer transition-colors w-full text-left",
                   ann.id === selectedAnnotationId ? "bg-primary/10 border border-primary/30" : "hover:bg-muted",
                 )}
-                onClick={() => setSelectedAnnotationId(ann.id)}
+                onClick={() => onSelectAnnotation(ann.id)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
-                    setSelectedAnnotationId(ann.id);
+                    onSelectAnnotation(ann.id);
                   }
                 }}
               >
@@ -125,7 +129,7 @@ export function ToolPanel() {
                   className="text-muted-foreground hover:text-destructive ml-1 shrink-0"
                   onClick={(e) => {
                     e.stopPropagation();
-                    deleteAnnotation(ann.id);
+                    onDeleteAnnotation(ann.id);
                   }}
                 >
                   x

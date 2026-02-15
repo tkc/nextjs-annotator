@@ -1,16 +1,13 @@
-"use client";
-
-import { useShallow } from "zustand/react/shallow";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useAnnotationStore } from "@/lib/stores/annotation-store";
 import { cn } from "@/lib/utils";
 
-export function ImageSidebar() {
-  const { images, currentImage } = useAnnotationStore(
-    useShallow((s) => ({ images: s.images, currentImage: s.currentImage })),
-  );
-  const setCurrentImage = useAnnotationStore((s) => s.setCurrentImage);
+export interface ImageSidebarViewProps {
+  images: readonly string[];
+  currentImage: string | null;
+  onSelectImage: (filename: string) => void;
+}
 
+export function ImageSidebarView({ images, currentImage, onSelectImage }: ImageSidebarViewProps) {
   const currentIndex = currentImage ? images.indexOf(currentImage) : -1;
 
   return (
@@ -27,7 +24,7 @@ export function ImageSidebar() {
             <button
               type="button"
               key={file}
-              onClick={() => setCurrentImage(file)}
+              onClick={() => onSelectImage(file)}
               className={cn(
                 "w-full text-left px-3 py-2 rounded text-xs truncate transition-colors",
                 file === currentImage ? "bg-primary text-primary-foreground" : "hover:bg-muted",

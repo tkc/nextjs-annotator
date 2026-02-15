@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
+import { AnnotationCanvas } from "@/components/containers/annotation-canvas";
+import { ImageSidebar } from "@/components/containers/image-sidebar";
+import { ToolPanel } from "@/components/containers/tool-panel";
 import { Button } from "@/components/ui/button";
+import { AppLayout } from "@/components/views/app-layout";
 import { createPolygon } from "@/lib/annotation-factory";
 import { maskToPolygon } from "@/lib/sam/mask-to-polygon";
 import { useAnnotationStore } from "@/lib/stores/annotation-store";
 import { useSamStore } from "@/lib/stores/sam-store";
-import { AnnotationCanvas } from "./annotation-canvas";
-import { ImageSidebar } from "./image-sidebar";
-import { ToolPanel } from "./tool-panel";
 
 export function AnnotationApp() {
   const config = useAnnotationStore((s) => s.config);
@@ -16,13 +17,11 @@ export function AnnotationApp() {
   const images = useAnnotationStore((s) => s.images);
   const init = useAnnotationStore((s) => s.init);
 
-  // Mount initialization
   useEffect(() => {
     init();
     useSamStore.getState().initDecoder();
   }, [init]);
 
-  // Reset SAM state on image change
   useEffect(() => {
     useSamStore.getState().reset();
     if (currentImage) {
@@ -30,14 +29,12 @@ export function AnnotationApp() {
     }
   }, [currentImage]);
 
-  // Keyboard shortcuts — read state at event time via getState() to avoid stale closures
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
       const store = useAnnotationStore.getState();
 
-      // SAM-specific shortcuts
       if (store.activeTool === "sam") {
         const samState = useSamStore.getState();
         if (e.key === "Enter" && samState.currentMask) {
@@ -108,59 +105,47 @@ export function AnnotationApp() {
     );
   }
 
-  return (
-    <div className="h-screen flex flex-col">
-      {/* Header */}
-      <header className="h-12 border-b flex items-center justify-between px-4 bg-background">
-        <h1 className="text-sm font-semibold">Image Annotation Tool</h1>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={() => {
-                window.open("/api/export/coco", "_blank");
-              }}
-            >
-              Export COCO
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={() => {
-                window.open("/api/export/yolo", "_blank");
-              }}
-            >
-              Export YOLO
-            </Button>
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {currentImage && (
-              <span>
-                {currentImage} ({images.indexOf(currentImage) + 1}/{images.length})
-              </span>
-            )}
-          </div>
-          <span className="text-xs text-muted-foreground">V=Select B=BBox P=Polygon .=Point S=SAM Del=Delete</span>
+  const header = (
+    <header className="h-12 border-b flex items-center justify-between px-4 bg-background">
+      <h1 className="text-sm font-semibold">Image Annotation Tool</h1>
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs"
+            onClick={() => window.open("/api/export/coco", "_blank")}
+          >
+            Export COCO
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs"
+            onClick={() => window.open("/api/export/yolo", "_blank")}
+          >
+            Export YOLO
+          </Button>
         </div>
-      </header>
-
-      {/* Main content */}
-      <div className="flex-1 flex min-h-0">
-        <ImageSidebar />
-
-        {currentImage ? (
-          <AnnotationCanvas />
-        ) : (
-          <div className="flex-1 flex items-center justify-center bg-neutral-900">
-            <p className="text-muted-foreground">Select an image to start annotating</p>
-          </div>
-        )}
-
-        <ToolPanel />
+        <div className="text-xs text-muted-foreground">
+          {currentImage && (
+            <span>
+              {currentImage} ({images.indexOf(currentImage) + 1}/{images.length})
+            </span>
+          )}
+        </div>
+        <span className="text-xs text-muted-foreground">V=Select B=BBox P=Polygon .=Point S=SAM Del=Delete</span>
       </div>
+    </header>
+  );
+
+  const canvas = currentImage ? (
+    <AnnotationCanvas />
+  ) : (
+    <div className="flex-1 flex items-center justify-center bg-neutral-900">
+      <p className="text-muted-foreground">Select an image to start annotating</p>
     </div>
   );
+
+  return <AppLayout header={header} sidebar={<ImageSidebar />} canvas={canvas} toolPanel={<ToolPanel />} />;
 }

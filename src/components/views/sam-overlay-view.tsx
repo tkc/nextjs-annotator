@@ -1,11 +1,18 @@
-"use client";
-
 import { useEffect, useRef, useState } from "react";
 import { Circle, Group, Image as KonvaImage, Text } from "react-konva";
-import { useShallow } from "zustand/react/shallow";
-import { useSamStore } from "@/lib/stores/sam-store";
 
-interface SamOverlayProps {
+export interface SamClick {
+  x: number;
+  y: number;
+  clickType: 0 | 1;
+}
+
+export interface SamOverlayViewProps {
+  maskData: { mask: Float32Array; width: number; height: number } | null;
+  clicks: SamClick[];
+  iouScore: number;
+  isProcessing: boolean;
+  error: string | null;
   imageWidth: number;
   imageHeight: number;
   scale: number;
@@ -27,13 +34,12 @@ function maskToImageElement(mask: Float32Array, width: number, height: number): 
   for (let i = 0; i < mask.length; i++) {
     const offset = i * 4;
     if (mask[i] > 0) {
-      // Semi-transparent blue: rgba(0, 114, 189, 100/255)
-      data[offset] = 0; // R
-      data[offset + 1] = 114; // G
-      data[offset + 2] = 189; // B
-      data[offset + 3] = 100; // A
+      data[offset] = 0;
+      data[offset + 1] = 114;
+      data[offset + 2] = 189;
+      data[offset + 3] = 100;
     } else {
-      data[offset + 3] = 0; // Transparent
+      data[offset + 3] = 0;
     }
   }
 
@@ -44,33 +50,30 @@ function maskToImageElement(mask: Float32Array, width: number, height: number): 
   return img;
 }
 
-export function SamOverlay({ imageWidth, imageHeight, scale }: SamOverlayProps) {
-  const { clicks, currentMask, isProcessing, error, iouScore } = useSamStore(
-    useShallow((s) => ({
-      clicks: s.clicks,
-      currentMask: s.currentMask,
-      isProcessing: s.isProcessing,
-      error: s.error,
-      iouScore: s.currentMask?.iouScore ?? 0,
-    })),
-  );
-
+export function SamOverlayView({
+  maskData,
+  clicks,
+  iouScore,
+  isProcessing,
+  error,
+  imageWidth,
+  imageHeight,
+  scale,
+}: SamOverlayViewProps) {
   const [maskImage, setMaskImage] = useState<HTMLImageElement | null>(null);
   const prevMaskRef = useRef<Float32Array | null>(null);
 
-  // Regenerate mask image when mask data changes
   useEffect(() => {
-    if (!currentMask) {
+    if (!maskData) {
       setMaskImage(null);
       prevMaskRef.current = null;
       return;
     }
 
-    // Skip if same mask reference
-    if (prevMaskRef.current === currentMask.mask) return;
-    prevMaskRef.current = currentMask.mask;
+    if (prevMaskRef.current === maskData.mask) return;
+    prevMaskRef.current = maskData.mask;
 
-    const img = maskToImageElement(currentMask.mask, currentMask.width, currentMask.height);
+    const img = maskToImageElement(maskData.mask, maskData.width, maskData.height);
     if (img) {
       if (img.complete) {
         setMaskImage(img);
@@ -78,14 +81,12 @@ export function SamOverlay({ imageWidth, imageHeight, scale }: SamOverlayProps) 
         img.onload = () => setMaskImage(img);
       }
     }
-  }, [currentMask]);
+  }, [maskData]);
 
   return (
     <Group>
-      {/* Mask overlay */}
       {maskImage && <KonvaImage image={maskImage} width={imageWidth} height={imageHeight} listening={false} />}
 
-      {/* Click points */}
       {clicks.map((click, i) => (
         <Circle
           // biome-ignore lint/suspicious/noArrayIndexKey: Click points are positional, no stable ID
@@ -100,7 +101,6 @@ export function SamOverlay({ imageWidth, imageHeight, scale }: SamOverlayProps) 
         />
       ))}
 
-      {/* Status text */}
       {clicks.length > 0 && (
         <Text
           x={4 / scale}
