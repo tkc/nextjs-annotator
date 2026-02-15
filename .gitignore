@@ -40,6 +40,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# ONNX models (download via scripts/setup-sam.sh)
+/models/
+/public/models/
+/public/ort-wasm-*
+
 # annotation data
 data/images/*
 !data/images/.gitkeep

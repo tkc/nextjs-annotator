@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Image Annotation Tool
 
-## Getting Started
+Next.js 16 + React 19 + react-konva で構築した ML 訓練データ作成用画像アノテーションツール。
+ローカルディレクトリの画像に対して BBox / Polygon / Point のアノテーションを行い、COCO JSON / YOLO TXT でエクスポートする。
 
-First, run the development server:
+## 必要環境
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js >= 20
+- pnpm >= 9
+
+
+### プロジェクト設定
+
+`annotation-config.json` でラベルと画像ディレクトリを設定する:
+
+```json
+{
+  "imageDir": "./data/images",
+  "outputDir": "./data/annotations",
+  "labels": ["car", "person", "dog", "cat", "bicycle"]
+}
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 起動
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# 開発サーバー
+pnpm dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+http://localhost:3000 でアクセス。
 
-## Learn More
+## その他のコマンド
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+pnpm build     # プロダクションビルド
+pnpm start     # ビルド後のサーバー起動
+pnpm lint      # Biome リントチェック
+pnpm format    # Biome フォーマット
+pnpm check     # Biome リント + フォーマット (自動修正)
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 操作方法
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### ツール
 
-## Deploy on Vercel
+| キー | ツール | 操作 |
+|------|--------|------|
+| V | Select | クリックで選択、ドラッグで移動・リサイズ |
+| B | BBox | ドラッグで矩形描画 |
+| P | Polygon | クリックで頂点追加、ダブルクリックで確定 |
+| . | Point | クリックで配置 |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### その他のショートカット
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| キー | アクション |
+|------|-----------|
+| Delete / Backspace | 選択中のアノテーション削除 |
+| ← | 前の画像 |
+| → | 次の画像 |
+| マウスホイール | ズーム (0.1x - 10x) |
+
+### エクスポート
+
+ヘッダーの「Export COCO」/「Export YOLO」ボタンからダウンロード。
+
+## Tech Stack
+
+| 技術 | 用途 |
+|------|------|
+| Next.js 16 (App Router) | フレームワーク |
+| React 19 | UI |
+| Konva + react-konva | Canvas 描画 |
+| Zustand | 状態管理 |
+| Zod | スキーマ検証 |
+| Tailwind CSS 4 + shadcn/ui | スタイリング |
+| Biome | リント + フォーマット |

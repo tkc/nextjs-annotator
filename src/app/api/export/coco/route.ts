@@ -1,26 +1,20 @@
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
-import { ImageAnnotation, BBoxAnnotation, PolygonAnnotation, PointAnnotation, toPixel } from "@/lib/types";
-
-function getConfig() {
-  const configPath = path.join(process.cwd(), "annotation-config.json");
-  return JSON.parse(fs.readFileSync(configPath, "utf-8"));
-}
+import { toPixel } from "@/lib/branded";
+import { listAnnotationFiles, loadConfig } from "@/lib/repository";
+import type { BBoxAnnotation, PointAnnotation, PolygonAnnotation } from "@/lib/types";
 
 export async function GET() {
-  const config = getConfig();
-  const outputDir = path.resolve(process.cwd(), config.outputDir);
-  const labels: string[] = config.labels;
+  const config = loadConfig();
+  const labels = config.labels;
 
-  const categories = labels.map((label: string, i: number) => ({
+  const categories = labels.map((label, i) => ({
     id: i + 1,
     name: label,
     supercategory: "none",
   }));
 
   const labelToId: Record<string, number> = {};
-  labels.forEach((label: string, i: number) => {
+  labels.forEach((label, i) => {
     labelToId[label] = i + 1;
   });
 
@@ -28,17 +22,9 @@ export async function GET() {
   const cocoAnnotations: Array<Record<string, unknown>> = [];
   let annotationId = 1;
 
-  if (!fs.existsSync(outputDir)) {
-    return NextResponse.json({ images: [], annotations: [], categories });
-  }
+  const annotationFiles = listAnnotationFiles(config);
 
-  const files = fs.readdirSync(outputDir).filter((f) => f.endsWith(".json"));
-
-  files.forEach((file, imageId) => {
-    const data: ImageAnnotation = JSON.parse(
-      fs.readFileSync(path.join(outputDir, file), "utf-8")
-    );
-
+  annotationFiles.forEach((data, imageId) => {
     images.push({
       id: imageId + 1,
       file_name: data.imageFile,
@@ -68,13 +54,11 @@ export async function GET() {
 
       if (ann.type === "polygon") {
         const poly = ann as PolygonAnnotation;
-        const segmentation = [];
         const flatPoints: number[] = [];
         for (let i = 0; i < poly.points.length; i += 2) {
           flatPoints.push(toPixel(poly.points[i], data.width));
           flatPoints.push(toPixel(poly.points[i + 1], data.height));
         }
-        segmentation.push(flatPoints);
 
         const xs = flatPoints.filter((_, i) => i % 2 === 0);
         const ys = flatPoints.filter((_, i) => i % 2 === 1);
@@ -87,7 +71,7 @@ export async function GET() {
           id: annotationId++,
           image_id: imageId + 1,
           category_id: categoryId,
-          segmentation,
+          segmentation: [flatPoints],
           bbox: [minX, minY, maxX - minX, maxY - minY],
           area: (maxX - minX) * (maxY - minY),
           iscrowd: 0,

@@ -3,9 +3,20 @@ import type { NormalizedCoord, PixelDimension, UUID } from "./branded";
 
 // --- Primitive Schemas ---
 
-const normalizedCoord = z.number().min(0).max(1).transform((v) => v as NormalizedCoord);
-const pixelDimension = z.number().int().nonnegative().transform((v) => v as PixelDimension);
-const annotationId = z.string().uuid().transform((v) => v as UUID);
+const normalizedCoord = z
+  .number()
+  .min(0)
+  .max(1)
+  .transform((v) => v as NormalizedCoord);
+const pixelDimension = z
+  .number()
+  .int()
+  .nonnegative()
+  .transform((v) => v as PixelDimension);
+const annotationId = z
+  .string()
+  .uuid()
+  .transform((v) => v as UUID);
 
 // --- Annotation Schemas ---
 
@@ -62,4 +73,4 @@ export const imageListResponseSchema = z.object({
 // --- Derived Types ---
 
 export type AnnotationType = "bbox" | "polygon" | "point";
-export type ToolType = AnnotationType | "select";
+export type ToolType = AnnotationType | "select" | "sam";

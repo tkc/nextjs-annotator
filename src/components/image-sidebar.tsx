@@ -1,15 +1,16 @@
 "use client";
 
+import { useShallow } from "zustand/react/shallow";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAnnotationStore } from "@/lib/stores/annotation-store";
 import { cn } from "@/lib/utils";
 
-interface ImageSidebarProps {
-  images: string[];
-  currentImage: string | null;
-  onSelectImage: (filename: string) => void;
-}
+export function ImageSidebar() {
+  const { images, currentImage } = useAnnotationStore(
+    useShallow((s) => ({ images: s.images, currentImage: s.currentImage })),
+  );
+  const setCurrentImage = useAnnotationStore((s) => s.setCurrentImage);
 
-export function ImageSidebar({ images, currentImage, onSelectImage }: ImageSidebarProps) {
   const currentIndex = currentImage ? images.indexOf(currentImage) : -1;
 
   return (
@@ -24,13 +25,12 @@ export function ImageSidebar({ images, currentImage, onSelectImage }: ImageSideb
         <div className="p-2 space-y-1">
           {images.map((file, i) => (
             <button
+              type="button"
               key={file}
-              onClick={() => onSelectImage(file)}
+              onClick={() => setCurrentImage(file)}
               className={cn(
                 "w-full text-left px-3 py-2 rounded text-xs truncate transition-colors",
-                file === currentImage
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:bg-muted"
+                file === currentImage ? "bg-primary text-primary-foreground" : "hover:bg-muted",
               )}
             >
               <span className="text-muted-foreground mr-1">{i + 1}.</span>

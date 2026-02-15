@@ -1,37 +1,27 @@
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
-import { ImageAnnotation, BBoxAnnotation, PolygonAnnotation } from "@/lib/types";
-
-function getConfig() {
-  const configPath = path.join(process.cwd(), "annotation-config.json");
-  return JSON.parse(fs.readFileSync(configPath, "utf-8"));
-}
+import { listAnnotationFiles, loadConfig } from "@/lib/repository";
+import type { BBoxAnnotation, PolygonAnnotation } from "@/lib/types";
 
 export async function GET() {
-  const config = getConfig();
-  const outputDir = path.resolve(process.cwd(), config.outputDir);
-  const labels: string[] = config.labels;
+  const config = loadConfig();
+  const labels = config.labels;
 
   const labelToId: Record<string, number> = {};
-  labels.forEach((label: string, i: number) => {
+  labels.forEach((label, i) => {
     labelToId[label] = i;
   });
 
-  if (!fs.existsSync(outputDir)) {
+  const annotationFiles = listAnnotationFiles(config);
+
+  if (annotationFiles.length === 0) {
     return NextResponse.json({ error: "No annotations found" }, { status: 404 });
   }
 
-  const files = fs.readdirSync(outputDir).filter((f) => f.endsWith(".json"));
   const results: Record<string, string> = {};
-
   results["classes.txt"] = labels.join("\n");
 
-  files.forEach((file) => {
-    const data: ImageAnnotation = JSON.parse(
-      fs.readFileSync(path.join(outputDir, file), "utf-8")
-    );
-    const baseName = path.basename(file, ".json");
+  annotationFiles.forEach((data) => {
+    const baseName = data.imageFile.replace(/\.[^.]+$/, "");
     const lines: string[] = [];
 
     data.annotations.forEach((ann) => {
@@ -39,14 +29,16 @@ export async function GET() {
 
       if (ann.type === "bbox") {
         const bbox = ann as BBoxAnnotation;
-        const cx = bbox.x + bbox.width / 2;
-        const cy = bbox.y + bbox.height / 2;
-        lines.push(`${classId} ${cx.toFixed(6)} ${cy.toFixed(6)} ${bbox.width.toFixed(6)} ${bbox.height.toFixed(6)}`);
+        const cx = (bbox.x as number) + (bbox.width as number) / 2;
+        const cy = (bbox.y as number) + (bbox.height as number) / 2;
+        lines.push(
+          `${classId} ${cx.toFixed(6)} ${cy.toFixed(6)} ${(bbox.width as number).toFixed(6)} ${(bbox.height as number).toFixed(6)}`,
+        );
       }
 
       if (ann.type === "polygon") {
         const poly = ann as PolygonAnnotation;
-        const pointsStr = poly.points.map((p) => p.toFixed(6)).join(" ");
+        const pointsStr = poly.points.map((p) => (p as number).toFixed(6)).join(" ");
         lines.push(`${classId} ${pointsStr}`);
       }
     });
