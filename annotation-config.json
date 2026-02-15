@@ -1,0 +1,5 @@
+{
+  "imageDir": "./data/images",
+  "outputDir": "./data/annotations",
+  "labels": ["car", "person", "dog", "cat", "bicycle"]
+}

@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# annotation data
+data/images/*
+!data/images/.gitkeep
+data/annotations/*
+!data/annotations/.gitkeep
