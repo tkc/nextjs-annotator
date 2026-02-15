@@ -183,18 +183,40 @@ pnpm storybook        # Storybook 開発サーバー
 pnpm build-storybook  # Storybook 静的ビルド
 ```
 
-## 7. CI パイプライン (推奨)
+## 7. CI/CD パイプライン
 
-```yaml
-# .github/workflows/test.yml (参考)
-jobs:
-  test:
-    steps:
-      - run: pnpm lint
-      - run: pnpm test:coverage
-      - run: pnpm build
-      - run: pnpm build-storybook
-      - run: pnpm test:e2e
+`.github/workflows/ci.yml` で全テストを自動実行する。
+
+### ジョブ構成
+
+```
+push / PR
+  ├── lint        (Biome)           ← 並列実行
+  ├── test        (Vitest coverage) ← 並列実行
+  ├── build       (Next.js + Storybook) ← 並列実行
+  └── e2e         (Playwright)      ← build 完了後
 ```
 
-lint → unit/integration → build → storybook build → E2E の順で実行し、早期失敗で無駄な実行を防ぐ。
+| ジョブ | 実行内容 | 依存 |
+|---|---|---|
+| **lint** | `pnpm lint` (Biome check) | なし |
+| **test** | `pnpm test:coverage` (Vitest + カバレッジ) | なし |
+| **build** | `pnpm build` + `pnpm build-storybook` | なし |
+| **e2e** | Playwright (Chromium) | build |
+
+### 設計方針
+
+- **並列実行**: lint / test / build は独立して並列実行し、フィードバックを高速化
+- **E2E は build 後**: ビルドが通らないなら E2E を実行しても無駄
+- **pnpm キャッシュ**: `pnpm/action-setup@v4` + `actions/setup-node` の `cache: pnpm` で依存関係をキャッシュ
+- **packageManager フィールド**: `package.json` に `"packageManager": "pnpm@10.29.3"` を指定し、CI とローカルで同一バージョンを使用
+- **Playwright**: CI ではリトライ 2 回、`github` reporter、`trace: on-first-retry` で失敗時のデバッグを容易に
+
+### ローカルでの CI 再現
+
+```bash
+pnpm lint             # lint ジョブ相当
+pnpm test:coverage    # test ジョブ相当
+pnpm build && pnpm build-storybook  # build ジョブ相当
+pnpm test:e2e         # e2e ジョブ相当
+```
