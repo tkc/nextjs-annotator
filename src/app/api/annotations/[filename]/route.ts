@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
-import { ImageAnnotation } from "@/lib/types";
+import { imageAnnotationSchema } from "@/lib/schemas";
+import type { ImageAnnotation } from "@/lib/types";
 
 function getConfig() {
   const configPath = path.join(process.cwd(), "annotation-config.json");
@@ -42,8 +43,17 @@ export async function PUT(
 ) {
   const { filename } = await params;
   const annotationPath = getAnnotationPath(filename);
-  const body: ImageAnnotation = await request.json();
+  const raw = await request.json();
+  const result = imageAnnotationSchema.safeParse(raw);
 
+  if (!result.success) {
+    return NextResponse.json(
+      { error: "Validation failed", details: result.error.flatten() },
+      { status: 400 }
+    );
+  }
+
+  const body = result.data;
   const config = getConfig();
   const outputDir = path.resolve(process.cwd(), config.outputDir);
   if (!fs.existsSync(outputDir)) {

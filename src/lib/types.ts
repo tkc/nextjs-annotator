@@ -1,42 +1,22 @@
-export type AnnotationType = "bbox" | "polygon" | "point";
-export type ToolType = AnnotationType | "select";
+import { z } from "zod";
+import {
+  bboxAnnotationSchema,
+  polygonAnnotationSchema,
+  pointAnnotationSchema,
+  annotationSchema,
+  imageAnnotationSchema,
+  projectConfigSchema,
+  imageListResponseSchema,
+} from "./schemas";
 
-export interface BBoxAnnotation {
-  id: string;
-  type: "bbox";
-  label: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+// Zod スキーマから推論された型
+export type BBoxAnnotation = z.infer<typeof bboxAnnotationSchema>;
+export type PolygonAnnotation = z.infer<typeof polygonAnnotationSchema>;
+export type PointAnnotation = z.infer<typeof pointAnnotationSchema>;
+export type Annotation = z.infer<typeof annotationSchema>;
+export type ImageAnnotation = z.infer<typeof imageAnnotationSchema>;
+export type ProjectConfig = z.infer<typeof projectConfigSchema>;
+export type ImageListResponse = z.infer<typeof imageListResponseSchema>;
 
-export interface PolygonAnnotation {
-  id: string;
-  type: "polygon";
-  label: string;
-  points: number[]; // [x1, y1, x2, y2, ...] normalized coordinates
-}
-
-export interface PointAnnotation {
-  id: string;
-  type: "point";
-  label: string;
-  x: number;
-  y: number;
-}
-
-export type Annotation = BBoxAnnotation | PolygonAnnotation | PointAnnotation;
-
-export interface ImageAnnotation {
-  imageFile: string;
-  width: number;
-  height: number;
-  annotations: Annotation[];
-}
-
-export interface ProjectConfig {
-  imageDir: string;
-  outputDir: string;
-  labels: string[];
-}
+// UI 用の型 (Zod 不要)
+export type { AnnotationType, ToolType } from "./schemas";
