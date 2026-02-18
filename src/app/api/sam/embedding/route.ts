@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import { readImageFile } from "@/lib/repository";
 import { encodeImage } from "@/lib/sam/sam-encoder";
@@ -8,8 +9,17 @@ import { encodeImage } from "@/lib/sam/sam-encoder";
  * the embedding as Float32Array [1, 256, 64, 64] in application/octet-stream.
  */
 export async function POST(request: Request) {
-  const body = await request.json();
-  const filename = body?.filename;
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "/api/sam/embedding", method: "POST" },
+    });
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const filename = (body as Record<string, unknown>)?.filename;
 
   if (!filename || typeof filename !== "string") {
     return NextResponse.json({ error: "filename is required" }, { status: 400 });
@@ -28,10 +38,13 @@ export async function POST(request: Request) {
       status: 200,
       headers: { "Content-Type": "application/octet-stream" },
     });
-  } catch (e) {
-    console.error("SAM encoder error:", e);
+  } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: "/api/sam/embedding", method: "POST" },
+      extra: { filename },
+    });
     return NextResponse.json(
-      { error: `Encoder failed: ${e instanceof Error ? e.message : String(e)}` },
+      { error: `Encoder failed: ${error instanceof Error ? error.message : String(error)}` },
       { status: 500 },
     );
   }
