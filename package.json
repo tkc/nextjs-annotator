@@ -20,6 +20,7 @@
     "setup:sam": "bash scripts/setup-sam.sh"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.39.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "konva": "^10.2.0",
